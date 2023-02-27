@@ -16,7 +16,10 @@
 #include <MPU6050_6Axis_MotionApps20.h>
 
 #define BUZZER 12
-#define LED_CALIBRATION 4
+#define LED_CALIBRATION_R 4
+#define LED_CALIBRATION_B 5
+#define LED_OK 3
+#define POT_PIN A3
 
 MPU6050 mpu;
 
@@ -25,7 +28,7 @@ int16_t gx, gy, gz;
 float acc_x, acc_y, acc_z, acc_avg;
 float gyro_x, gyro_y, gyro_z, gyro_avg;
 
-unsigned int alarmDuration = 200; // milliseconds
+unsigned int alarmDuration = 20000; // milliseconds
 unsigned int alarmDelay = 50; // milliseconds
 
 // Buffer for sensor data
@@ -41,8 +44,8 @@ float gyroListSum = 0;
 int accListIndex = 0;
 int gyroListIndex = 0;
 
-float accThresholdMult = 1.0012;
-float gyroThresholdMult = 1.5; 
+volatile float accThresholdMult; //1.0012;
+volatile float gyroThresholdMult;// 1.5; 
 
 float gyroThreshold = 1000;
 float accThreshold = 1000;
@@ -64,7 +67,7 @@ bool alarmActive = false;
 
 void calibrateMPU() {
   // Calibrate gyro and accelerometers, load biases in bias registers
-  digitalWrite(LED_CALIBRATION, HIGH);
+  digitalWrite(LED_CALIBRATION_R, HIGH);
   mpu.CalibrateAccel(6);
   mpu.CalibrateGyro(6);
   // mpu.PrintActiveOffsets();
@@ -129,10 +132,12 @@ float getAccThreshold() {
   // if len of list less than ListSize then return a big number to avoid false alarm
   if (accListIndex < sensorListSize-1 && accThreshold == 1000) {
     // waiting for list to fill up, calibrating. So led on
-    digitalWrite(LED_CALIBRATION, HIGH);
+    digitalWrite(LED_CALIBRATION_R, HIGH);
     return 1000;
   }
-  digitalWrite(LED_CALIBRATION, LOW);
+  digitalWrite(LED_CALIBRATION_R, LOW);
+  // remap pot value to 1.0 - 1.015
+  accThresholdMult = map(analogRead(POT_PIN), 5, 1018, 9999, 10150) / 10000.0;
   accThreshold = accListSum / sensorListSize * accThresholdMult;
   return accThreshold;
 }
@@ -142,6 +147,8 @@ float getGyroThreshold() {
   if (gyroListIndex < sensorListSize-1 && gyroThreshold == 1000) {
     return 1000;
   }
+  // remap pot value to 1.4 - 2.0
+  gyroThresholdMult = map(analogRead(POT_PIN), 5, 1018, 15000, 35000) / 10000.0;
   gyroThreshold = gyroListSum / sensorListSize * gyroThresholdMult;
   return gyroThreshold;
 }
@@ -161,46 +168,105 @@ void readSensor()
   gyro_z = gz / GYRO_DIV;
   gyro_avg = (abs(gyro_x) + abs(gyro_y) + abs(gyro_z)) / 3; // TODO find better way instead of using avg
 }
-
+int getPotRemapped() {
+  return map(analogRead(POT_PIN), 6, 1017, 1, 1000);
+}
 void startAlarm() {
   unsigned long tone1StartTime = 0;
   unsigned long tone2StartTime = 0;
+  int potValueStart = getPotRemapped();
+  int potValue = potValueStart;
+  unsigned long potValueStartTime = 0;
   // get alarm start time 
-  alarmStartTime = millis();  
+  alarmStartTime = millis();
+  alarmActive = true;
+
   while (millis() - alarmStartTime < alarmDuration) 
   {
+
+
+    // CHECK current pot value every sec without blocking
+    // if (millis() - potValueStartTime > 500) {
+    //   potValueStartTime = millis();
+    //   potValue = getPotRemapped();
+    //   Serial.print("potValue: ");
+    //   Serial.print(potValue);
+    //   Serial.print(" -- potValueStart: ");
+    //   Serial.println(potValueStart);
+    //   if (abs(potValue - potValueStart) > 50 && potValue != 0) {
+    //     // pot value changed, so end alarm
+    //     alarmActive = false;
+    //     break;
+    //   }
+    // }
+
     // keep updating the values to get rid of the false alarm when the alarm is ended
     readSensor();
     // updateAccList(acc_avg);
     // updateGyroList(gyro_avg);
     updateST_AccList(acc_avg);
     updateST_GyroList(gyro_avg);
+    accThreshold = getAccThreshold();
+    gyroThreshold = getGyroThreshold();
 
-    if (tone1StartTime == 0) {
-      tone1StartTime = millis();
-      tone(BUZZER, 1000);
+  // blocking tone code
+    tone(BUZZER, 1000);
+    delay(alarmDelay);
+    tone(BUZZER, 2000);
+    delay(alarmDelay);
+    noTone(BUZZER);
+    if (abs(getPotRemapped() - potValueStart) > 50 && getPotRemapped() != 0) {
+      // pot value changed, so end alarm
+      alarmActive = false;
+      break;
     }
-    else if (millis() - tone1StartTime > alarmDelay) {
 
-      if (tone2StartTime == 0) {
-        tone2StartTime = millis();
-        tone(BUZZER, 2000);
-      }
-      else if (millis() - tone2StartTime > alarmDelay) { 
-        tone1StartTime = 0;
-        tone2StartTime = 0;
-      }
-    }
+// non blocking tone code
+    // if (tone1StartTime == 0) {
+    //   tone1StartTime = millis();
+    //   tone(BUZZER, 1000);
+    // }
+    // else if (millis() - tone1StartTime > alarmDelay) {
+
+    //   if (tone2StartTime == 0) {
+    //     tone2StartTime = millis();
+    //     tone(BUZZER, 2000);
+    //   }
+    //   else if (millis() - tone2StartTime > alarmDelay) { 
+    //     tone1StartTime = 0;
+    //     tone2StartTime = 0;
+    //   }
+    // }
   }
+  alarmActive = false;
   noTone(BUZZER);
   return;
 }
 
+void testLeds()
+{
+  digitalWrite(LED_CALIBRATION_R, HIGH);
+  delay(250);
+  digitalWrite(LED_CALIBRATION_R, LOW);
+  digitalWrite(LED_CALIBRATION_B, HIGH);
+  delay(250);
+  digitalWrite(LED_CALIBRATION_B, LOW);
+  digitalWrite(LED_OK, HIGH);
+  delay(250);
+  digitalWrite(LED_OK, LOW);
+}
+
 void setup() {
-  // Serial.begin(19200);
+  Serial.begin(19200);
   Wire.begin();
   pinMode(BUZZER, OUTPUT);
-  pinMode(LED_CALIBRATION, OUTPUT);
+  pinMode(LED_CALIBRATION_R, OUTPUT);
+  pinMode(LED_CALIBRATION_B, OUTPUT);
+  pinMode(LED_OK, OUTPUT);
+  pinMode(POT_PIN, INPUT);
+
+  testLeds();
+
   mpu.initialize();
   mpu.setSleepEnabled(false);
   mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
@@ -208,7 +274,7 @@ void setup() {
   calibrateMPU();
 
   testBuzzer();
-  digitalWrite(LED_CALIBRATION, LOW);
+  digitalWrite(LED_CALIBRATION_R, LOW);
  
 
   mpu.setDHPFMode(MPU6050_DHPF_5);
@@ -216,16 +282,27 @@ void setup() {
 
   // Filling up the threshold lists
   for (int i = 0; i < sensorListSize; i++) {
-    delay(100);
     readSensor();
     updateAccList(acc_avg);
     updateGyroList(gyro_avg);
     accThreshold = getAccThreshold();
     gyroThreshold = getGyroThreshold();
+    delay(50);
   }
+  // for (int i = 0; i < ST_ListSize; i++) {
+  //   readSensor();
+  //   updateST_AccList(acc_avg);
+  //   updateST_GyroList(gyro_avg);
+  //   accThreshold = getST_AccAvg();
+  //   gyroThreshold = getST_GyroAvg();
+  // }
 }
 
 void loop() {
+
+  accThreshold = getAccThreshold();
+  gyroThreshold = getGyroThreshold();
+
   // Filling up Smoothed Threshold lists
   readSensor();
   updateST_AccList(acc_avg);
@@ -237,7 +314,7 @@ void loop() {
   // if (ST_AccAvg > accThreshold)
   // if (ST_GyroAvg > gyroThreshold)
   {
-    if (alarmStartTime == 0 || millis() - alarmStartTime > alarmDuration) {
+    if (alarmStartTime == 0 || alarmActive == false) {
       // Serial.println("ALARM STARTED");
       startAlarm();
     }
@@ -258,6 +335,6 @@ void loop() {
   // Serial.println(gyroThreshold , 4);
 
 
-  delay(100);
+  delay(50);
   
 }
