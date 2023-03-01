@@ -1,9 +1,3 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Earthquake Detection System using MPU6050</title>
-</head>
-<body>
   <h1>Earthquake Detection System using MPU6050</h1>
   <p>This is a robust and highly accurate earthquake detection system using the MPU6050 accelerometer and gyroscope. The system is designed to alert the user with a buzzer when an earthquake is detected.</p>
   <p>The system incorporates a custom smoothing algorithm to prevent false alarms, especially when the user is walking or when the system is on a moving vehicle like a car, bus, or train. The gyroscope is highly sensitive to movement, and the system takes this into account.</p>
