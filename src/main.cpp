@@ -269,10 +269,12 @@ void setup() {
   testLeds();
 
   mpu.initialize();
+  calibrateMPU();
+  mpu.setRate(9); // 1khz / (1 + 9) = 100 Hz
   mpu.setSleepEnabled(false);
   mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
   mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_250);
-  calibrateMPU();
+
 
   testBuzzer();
   digitalWrite(LED_CALIBRATION_R, LOW);
@@ -314,21 +316,6 @@ void loop() {
       startAlarm();
     }
   }
-
-  // Serial.print(" - Acc: ");
-  // Serial.print(acc_avg, 4);
-  // Serial.print(" - ST: ");
-  // Serial.print(ST_AccAvg, 4);
-  // Serial.print(" - Threshold: ");
-  // Serial.println(accThreshold, 4);
-  // Serial.print(" ---- ");
-  // Serial.print(" - Gyro: ");
-  // Serial.print(gyro_avg , 4);
-  // Serial.print(" - ST: ");
-  // Serial.print(ST_GyroAvg , 4);
-  // Serial.print(" - Threshold: ");
-  // Serial.println(gyroThreshold , 4);
-
 
   delay(50);
   
