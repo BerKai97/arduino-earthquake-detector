@@ -28,7 +28,7 @@ int16_t gx, gy, gz;
 float acc_x, acc_y, acc_z, acc_avg;
 float gyro_x, gyro_y, gyro_z, gyro_avg;
 
-unsigned int alarmDuration = 20000; // milliseconds
+unsigned int alarmDuration = 2000; // milliseconds
 unsigned int alarmDelay = 50; // milliseconds
 
 // Buffer for sensor data
@@ -68,6 +68,7 @@ bool alarmActive = false;
 void calibrateMPU() {
   // Calibrate gyro and accelerometers, load biases in bias registers
   digitalWrite(LED_CALIBRATION_R, HIGH);
+  delay(5000); // wait for 5 seconds to settle
   mpu.CalibrateAccel(6);
   mpu.CalibrateGyro(6);
   // mpu.PrintActiveOffsets();
@@ -137,7 +138,7 @@ float getAccThreshold() {
   }
   digitalWrite(LED_CALIBRATION_R, LOW);
   // remap pot value to 1.0 - 1.015
-  accThresholdMult = map(analogRead(POT_PIN), 5, 1018, 9999, 10150) / 10000.0;
+  accThresholdMult = map(analogRead(POT_PIN), 5, 1018, 10010, 10150) / 10000.0;
   accThreshold = accListSum / sensorListSize * accThresholdMult;
   return accThreshold;
 }
@@ -257,7 +258,7 @@ void testLeds()
 }
 
 void setup() {
-  Serial.begin(19200);
+  // Serial.begin(19200);
   Wire.begin();
   pinMode(BUZZER, OUTPUT);
   pinMode(LED_CALIBRATION_R, OUTPUT);
@@ -287,15 +288,9 @@ void setup() {
     updateGyroList(gyro_avg);
     accThreshold = getAccThreshold();
     gyroThreshold = getGyroThreshold();
-    delay(50);
+    delay(100);
   }
-  // for (int i = 0; i < ST_ListSize; i++) {
-  //   readSensor();
-  //   updateST_AccList(acc_avg);
-  //   updateST_GyroList(gyro_avg);
-  //   accThreshold = getST_AccAvg();
-  //   gyroThreshold = getST_GyroAvg();
-  // }
+
 }
 
 void loop() {
@@ -311,9 +306,9 @@ void loop() {
   ST_GyroAvg = getST_GyroAvg();
   
   if (ST_AccAvg > accThreshold || ST_GyroAvg > gyroThreshold)
-  // if (ST_AccAvg > accThreshold)
-  // if (ST_GyroAvg > gyroThreshold)
   {
+    // if (ST_AccAvg > accThreshold) Serial.print("ALARM ACC");
+    // if (ST_GyroAvg > gyroThreshold) Serial.print("ALARM GYRO");
     if (alarmStartTime == 0 || alarmActive == false) {
       // Serial.println("ALARM STARTED");
       startAlarm();
