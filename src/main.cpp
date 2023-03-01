@@ -1,5 +1,3 @@
-/////////////////////////////////////////////////////////////////////////////////////////
-//                                                                                     //
 // This is a robust and high accurate earhquake detection system using MPU6050
 // accelerometer and gyroscope.    
 // I have used a buzzer to alert the user. The main idea is to wake up the user when
@@ -7,9 +5,10 @@
 // prevent false alarms like when the user is walking or car, bus, train is moving.
 // Aspecially the gyroscope is very sensitive to the movement of the car, bus, train.
 // You are welcome to collaborate and improve the code.
-// Berkay Eraydin - 2023
 
 // TODO - Use weighted average for smoothing algorithm. Some axis are more sensitive as I have seen.
+// TODO - Seperate the axises instead of using the average of all axises and get their magnitude w sqrt(x^2 + y^2 + z^2)
+// TODO - We can dynamically change the threshold by updating the threshold lists for each n seconds or minutes.
 
 #include <Arduino.h>
 #include <Wire.h>
