@@ -95,5 +95,4 @@
     <h2>Contributing</h2>
         <p>Contributions are welcome. To contribute, fork the repository and create a new branch for your changes. Once your changes are complete, create a pull request to merge your changes back into the main branch.</p>
         <p>Please ensure that your changes are well-documented and that any new features or changes are thoroughly tested.</p>
-        <h2>License</h2>
-        <p>This project is licensed under the MIT License.</p>
+
