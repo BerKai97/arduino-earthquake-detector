@@ -27,8 +27,11 @@ int16_t gx, gy, gz;
 float acc_x, acc_y, acc_z, acc_avg;
 float gyro_x, gyro_y, gyro_z, gyro_avg;
 
-unsigned int alarmDuration = 2000; // milliseconds
-unsigned int alarmDelay = 50; // milliseconds
+unsigned long LTA_uptdateTime = millis();
+float LTA_updateInterval = 10000;
+
+unsigned int alarmDuration = 12000; // milliseconds
+unsigned int alarmDelay = 500; // milliseconds
 
 // Buffer for sensor data
 const int sensorListSize = 80;
@@ -137,7 +140,7 @@ float getAccThreshold() {
   }
   digitalWrite(LED_CALIBRATION_R, LOW);
   // remap pot value to 1.0 - 1.015
-  accThresholdMult = map(analogRead(POT_PIN), 5, 1018, 10010, 10150) / 10000.0;
+  accThresholdMult = map(analogRead(POT_PIN), 5, 1018, 10007, 10080) / 10000.0;
   accThreshold = accListSum / sensorListSize * accThresholdMult;
   return accThreshold;
 }
@@ -153,52 +156,36 @@ float getGyroThreshold() {
   return gyroThreshold;
 }
 
-float ACC_DIV = 10.0;
-float GYRO_DIV = 10.0;
+float ACC_DIV = 16384.0;
+float GYRO_DIV = 131.0;
 void readSensor()
 {
   mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
   acc_x = ax / ACC_DIV;
   acc_y = ay / ACC_DIV;
   acc_z = az / ACC_DIV;
-  acc_avg = (abs(acc_x) + abs(acc_y) + abs(acc_z)) / 3; // TODO find better way instead of using avg
+  // acc_avg = (abs(acc_x) + abs(acc_y) + abs(acc_z)) / 3; // TODO find better way instead of using avg
+  // use magnitude of acc instead of avg
+  acc_avg = sqrt(acc_x * acc_x + acc_y * acc_y + acc_z * acc_z);
   
   gyro_x = gx / GYRO_DIV;
   gyro_y = gy / GYRO_DIV;
   gyro_z = gz / GYRO_DIV;
-  gyro_avg = (abs(gyro_x) + abs(gyro_y) + abs(gyro_z)) / 3; // TODO find better way instead of using avg
+  // gyro_avg = (abs(gyro_x) + abs(gyro_y) + abs(gyro_z)) / 3; // TODO find better way instead of using avg
+  // use magnitude of gyro instead of avg
+  gyro_avg = sqrt(gyro_x * gyro_x + gyro_y * gyro_y + gyro_z * gyro_z);
 }
 int getPotRemapped() {
   return map(analogRead(POT_PIN), 6, 1017, 1, 1000);
 }
 void startAlarm() {
-  unsigned long tone1StartTime = 0;
-  unsigned long tone2StartTime = 0;
   int potValueStart = getPotRemapped();
-  int potValue = potValueStart;
-  unsigned long potValueStartTime = 0;
   // get alarm start time 
   alarmStartTime = millis();
   alarmActive = true;
 
   while (millis() - alarmStartTime < alarmDuration) 
   {
-
-
-    // CHECK current pot value every sec without blocking
-    // if (millis() - potValueStartTime > 500) {
-    //   potValueStartTime = millis();
-    //   potValue = getPotRemapped();
-    //   Serial.print("potValue: ");
-    //   Serial.print(potValue);
-    //   Serial.print(" -- potValueStart: ");
-    //   Serial.println(potValueStart);
-    //   if (abs(potValue - potValueStart) > 50 && potValue != 0) {
-    //     // pot value changed, so end alarm
-    //     alarmActive = false;
-    //     break;
-    //   }
-    // }
 
     // keep updating the values to get rid of the false alarm when the alarm is ended
     readSensor();
@@ -294,8 +281,10 @@ void setup() {
 
 }
 
-void loop() {
 
+void loop() {
+  digitalWrite(LED_OK, HIGH);
+  
   accThreshold = getAccThreshold();
   gyroThreshold = getGyroThreshold();
 
@@ -305,6 +294,14 @@ void loop() {
   updateST_GyroList(gyro_avg);
   ST_AccAvg = getST_AccAvg();
   ST_GyroAvg = getST_GyroAvg();
+
+  if(millis() - LTA_uptdateTime > LTA_updateInterval) {
+    LTA_uptdateTime = millis();
+    updateAccList(acc_avg);
+    updateGyroList(gyro_avg);
+    accThreshold = getAccThreshold();
+    gyroThreshold = getGyroThreshold();
+  }
   
   if (ST_AccAvg > accThreshold || ST_GyroAvg > gyroThreshold)
   {
@@ -315,6 +312,17 @@ void loop() {
       startAlarm();
     }
   }
+
+  // Serial.print("acc_avg: ");
+  // Serial.print(ST_AccAvg,6);
+  // Serial.print(" -- accThreshold: ");
+  // Serial.print(accThreshold,6);
+  // Serial.print("gyro_avg: ");
+  // Serial.print(ST_GyroAvg,6);
+  // Serial.print(" -- gyroThreshold: ");
+  // Serial.println(gyroThreshold,6);
+
+
 
   delay(50);
   
