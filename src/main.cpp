@@ -6,8 +6,6 @@
 // Aspecially the gyroscope is very sensitive to the movement of the car, bus, train.
 // You are welcome to collaborate and improve the code.
 
-// TODO - Use weighted average for smoothing algorithm. Some axis are more sensitive as I have seen.
-// TODO - Seperate the axises instead of using the average of all axises and get their magnitude w sqrt(x^2 + y^2 + z^2)
 // TODO - We can dynamically change the threshold by updating the threshold lists for each n seconds or minutes.
 
 #include <Arduino.h>
@@ -15,9 +13,9 @@
 #include <MPU6050_6Axis_MotionApps20.h>
 
 #define BUZZER 12
-#define LED_CALIBRATION_R 4
-#define LED_CALIBRATION_B 5
-#define LED_OK 3
+#define LED_B 5
+#define LED_R 3
+#define LED_G 4
 #define POT_PIN A3
 
 MPU6050 mpu;
@@ -28,14 +26,14 @@ float acc_x, acc_y, acc_z, acc_avg;
 float gyro_x, gyro_y, gyro_z, gyro_avg;
 
 unsigned long LTA_uptdateTime = millis();
-float LTA_updateInterval = 10000;
+float LTA_updateInterval = 5000;
 
-unsigned int alarmDuration = 12000; // milliseconds
-unsigned int alarmDelay = 500; // milliseconds
+unsigned int alarmDuration = 10000;
+unsigned int alarmDelay = 150;
 
 // Buffer for sensor data
-const int sensorListSize = 80;
-const int ST_ListSize = 6;
+const int sensorListSize = 70;
+const int ST_ListSize = 7;
 
 float accList[sensorListSize];
 float gyroList[sensorListSize];
@@ -69,11 +67,11 @@ bool alarmActive = false;
 
 void calibrateMPU() {
   // Calibrate gyro and accelerometers, load biases in bias registers
-  digitalWrite(LED_CALIBRATION_R, HIGH);
+  digitalWrite(LED_B, HIGH);
   delay(5000); // wait for 5 seconds to settle
   mpu.CalibrateAccel(6);
   mpu.CalibrateGyro(6);
-  // mpu.PrintActiveOffsets();
+  mpu.PrintActiveOffsets();
 }
 
 void testBuzzer() {
@@ -135,11 +133,11 @@ float getAccThreshold() {
   // if len of list less than ListSize then return a big number to avoid false alarm
   if (accListIndex < sensorListSize-1 && accThreshold == 1000) {
     // waiting for list to fill up, calibrating. So led on
-    digitalWrite(LED_CALIBRATION_R, HIGH);
+    digitalWrite(LED_B, HIGH);
     return 1000;
   }
-  digitalWrite(LED_CALIBRATION_R, LOW);
-  // remap pot value to 1.0 - 1.015
+  digitalWrite(LED_B, LOW);
+  // remap pot value to magic numbers that works for me - TODO - find a better way
   accThresholdMult = map(analogRead(POT_PIN), 5, 1018, 10007, 10080) / 10000.0;
   accThreshold = accListSum / sensorListSize * accThresholdMult;
   return accThreshold;
@@ -150,7 +148,7 @@ float getGyroThreshold() {
   if (gyroListIndex < sensorListSize-1 && gyroThreshold == 1000) {
     return 1000;
   }
-  // remap pot value to 1.4 - 2.0
+  // remap pot value to magic numbers that works for me - TODO - find a better way
   gyroThresholdMult = map(analogRead(POT_PIN), 5, 1018, 15000, 35000) / 10000.0;
   gyroThreshold = gyroListSum / sensorListSize * gyroThresholdMult;
   return gyroThreshold;
@@ -164,15 +162,13 @@ void readSensor()
   acc_x = ax / ACC_DIV;
   acc_y = ay / ACC_DIV;
   acc_z = az / ACC_DIV;
-  // acc_avg = (abs(acc_x) + abs(acc_y) + abs(acc_z)) / 3; // TODO find better way instead of using avg
-  // use magnitude of acc instead of avg
+
   acc_avg = sqrt(acc_x * acc_x + acc_y * acc_y + acc_z * acc_z);
   
   gyro_x = gx / GYRO_DIV;
   gyro_y = gy / GYRO_DIV;
   gyro_z = gz / GYRO_DIV;
-  // gyro_avg = (abs(gyro_x) + abs(gyro_y) + abs(gyro_z)) / 3; // TODO find better way instead of using avg
-  // use magnitude of gyro instead of avg
+
   gyro_avg = sqrt(gyro_x * gyro_x + gyro_y * gyro_y + gyro_z * gyro_z);
 }
 int getPotRemapped() {
@@ -183,30 +179,30 @@ void startAlarm() {
   // get alarm start time 
   alarmStartTime = millis();
   alarmActive = true;
-
+  // Reset the AVGs
+  ST_AccAvg = 0;
+  ST_GyroAvg = 0;
   while (millis() - alarmStartTime < alarmDuration) 
   {
 
     // keep updating the values to get rid of the false alarm when the alarm is ended
-    readSensor();
-    // updateAccList(acc_avg);
-    // updateGyroList(gyro_avg);
-    updateST_AccList(acc_avg);
-    updateST_GyroList(gyro_avg);
-    accThreshold = getAccThreshold();
-    gyroThreshold = getGyroThreshold();
+    // readSensor();
+    // updateST_AccList(acc_avg);
+    // updateST_GyroList(gyro_avg);
+    // accThreshold = getAccThreshold();
+    // gyroThreshold = getGyroThreshold();
 
+    if (abs(getPotRemapped() - potValueStart) > 50 && getPotRemapped() != 0) {
+      // pot value changed, so end alarm
+      alarmActive = false;
+      break;
+    }
   // blocking tone code
     tone(BUZZER, 1000);
     delay(alarmDelay);
     tone(BUZZER, 2000);
     delay(alarmDelay);
     noTone(BUZZER);
-    if (abs(getPotRemapped() - potValueStart) > 50 && getPotRemapped() != 0) {
-      // pot value changed, so end alarm
-      alarmActive = false;
-      break;
-    }
 
 // non blocking tone code
     // if (tone1StartTime == 0) {
@@ -232,29 +228,39 @@ void startAlarm() {
 
 void testLeds()
 {
-  digitalWrite(LED_CALIBRATION_R, HIGH);
+  digitalWrite(LED_B, HIGH);
   delay(250);
-  digitalWrite(LED_CALIBRATION_R, LOW);
-  digitalWrite(LED_CALIBRATION_B, HIGH);
+  digitalWrite(LED_B, LOW);
+  digitalWrite(LED_R, HIGH);
   delay(250);
-  digitalWrite(LED_CALIBRATION_B, LOW);
-  digitalWrite(LED_OK, HIGH);
+  digitalWrite(LED_R, LOW);
+  digitalWrite(LED_G, HIGH);
   delay(250);
-  digitalWrite(LED_OK, LOW);
+  digitalWrite(LED_G, LOW);
 }
 
 void setup() {
-  // Serial.begin(19200);
+  Serial.begin(9600);
   Wire.begin();
   pinMode(BUZZER, OUTPUT);
-  pinMode(LED_CALIBRATION_R, OUTPUT);
-  pinMode(LED_CALIBRATION_B, OUTPUT);
-  pinMode(LED_OK, OUTPUT);
+  pinMode(LED_B, OUTPUT);
+  pinMode(LED_R, OUTPUT);
+  pinMode(LED_G, OUTPUT);
   pinMode(POT_PIN, INPUT);
 
   testLeds();
 
   mpu.initialize();
+  // mpu.dmpInitialize();
+
+  if (mpu.testConnection()) {
+      // mpu.setDMPEnabled(true);
+      digitalWrite(LED_G, HIGH);
+    } else {
+      digitalWrite(LED_B, HIGH);
+      while (1);
+    }
+
   calibrateMPU();
   mpu.setRate(9); // 1khz / (1 + 9) = 100 Hz
   mpu.setSleepEnabled(false);
@@ -262,8 +268,9 @@ void setup() {
   mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_250);
 
 
+
   testBuzzer();
-  digitalWrite(LED_CALIBRATION_R, LOW);
+  digitalWrite(LED_B, LOW);
  
 
   mpu.setDHPFMode(MPU6050_DHPF_5);
@@ -276,14 +283,14 @@ void setup() {
     updateGyroList(gyro_avg);
     accThreshold = getAccThreshold();
     gyroThreshold = getGyroThreshold();
-    delay(100);
+    delay(70);
   }
 
 }
 
 
 void loop() {
-  digitalWrite(LED_OK, HIGH);
+  // digitalWrite(LED_G, HIGH);
   
   accThreshold = getAccThreshold();
   gyroThreshold = getGyroThreshold();
@@ -305,25 +312,24 @@ void loop() {
   
   if (ST_AccAvg > accThreshold || ST_GyroAvg > gyroThreshold)
   {
-    // if (ST_AccAvg > accThreshold) Serial.print("ALARM ACC");
-    // if (ST_GyroAvg > gyroThreshold) Serial.print("ALARM GYRO");
     if (alarmStartTime == 0 || alarmActive == false) {
-      // Serial.println("ALARM STARTED");
+
       startAlarm();
     }
   }
 
-  // Serial.print("acc_avg: ");
+  // Serial.print("acc_avg:");
   // Serial.print(ST_AccAvg,6);
-  // Serial.print(" -- accThreshold: ");
+  // Serial.print(",");
+  // Serial.print("accThreshold:");
   // Serial.print(accThreshold,6);
-  // Serial.print("gyro_avg: ");
+  // Serial.print(",");
+  // Serial.print("gyro_avg:");
   // Serial.print(ST_GyroAvg,6);
-  // Serial.print(" -- gyroThreshold: ");
+  // Serial.print(",");
+  // Serial.print("gyroThreshold:");
   // Serial.println(gyroThreshold,6);
+  // delay(10);
 
 
-
-  delay(50);
-  
 }
