@@ -182,13 +182,21 @@ void startAlarm() {
   // Reset the AVGs
   ST_AccAvg = 0;
   ST_GyroAvg = 0;
+  ST_gyroListIndex = 0;
+  ST_accListIndex = 0;
+  ST_AccListSum = 0;
+  ST_GyroListSum = 0;
+  memset(ST_AccList, 0, sizeof(ST_AccList));
+  memset(ST_GyroList, 0, sizeof(ST_GyroList));
+
+
   while (millis() - alarmStartTime < alarmDuration) 
   {
 
     // keep updating the values to get rid of the false alarm when the alarm is ended
-    readSensor();
-    updateST_AccList(acc_avg);
-    updateST_GyroList(gyro_avg);
+    // readSensor();
+    // updateST_AccList(acc_avg);
+    // updateST_GyroList(gyro_avg);
     // accThreshold = getAccThreshold();
     // gyroThreshold = getGyroThreshold();
 
@@ -329,7 +337,7 @@ void loop() {
   // Serial.print(",");
   // Serial.print("gyroThreshold:");
   // Serial.println(gyroThreshold,6);
-  delay(50);
+  delay(20);
 
 
 }
