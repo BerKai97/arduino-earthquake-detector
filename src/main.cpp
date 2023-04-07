@@ -138,7 +138,7 @@ float getAccThreshold() {
   }
   digitalWrite(LED_B, LOW);
   // remap pot value to magic numbers that works for me - TODO - find a better way
-  accThresholdMult = map(analogRead(POT_PIN), 5, 1018, 10007, 10080) / 10000.0;
+  accThresholdMult = map(analogRead(POT_PIN), 5, 1018, 10020, 10080) / 10000.0;
   accThreshold = accListSum / sensorListSize * accThresholdMult;
   return accThreshold;
 }
@@ -149,7 +149,7 @@ float getGyroThreshold() {
     return 1000;
   }
   // remap pot value to magic numbers that works for me - TODO - find a better way
-  gyroThresholdMult = map(analogRead(POT_PIN), 5, 1018, 15000, 35000) / 10000.0;
+  gyroThresholdMult = map(analogRead(POT_PIN), 5, 1018, 25000, 35000) / 10000.0;
   gyroThreshold = gyroListSum / sensorListSize * gyroThresholdMult;
   return gyroThreshold;
 }
